@@ -31,6 +31,7 @@
 #include "qemu/cutils.h"
 #include "qemu/help_option.h"
 #include "qemu/uuid.h"
+#include "dsm_backend.h"
 
 #ifdef CONFIG_SECCOMP
 #include "sysemu/seccomp.h"
