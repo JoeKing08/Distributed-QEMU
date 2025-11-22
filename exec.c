@@ -1660,6 +1660,9 @@ static void ram_block_add(RAMBlock *new_block, Error **errp)
         /* MADV_DONTFORK is also needed by KVM in absence of synchronous MMU */
         qemu_madvise(new_block->host, new_block->max_length, QEMU_MADV_DONTFORK);
     }
+
+    // [GiantVM Ultimate] 如果开启了新模式，在这里接管内存
+    dsm_register_ram(new_block->host, new_block->max_length);
 }
 
 #ifdef __linux__
