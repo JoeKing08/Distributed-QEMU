@@ -19,6 +19,7 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>
  */
 
+#include <poll.h>
 #include "qemu/osdep.h"
 #include "tpm_util.h"
 #include "tpm_int.h"
@@ -27,18 +28,16 @@
  * A basic test of a TPM device. We expect a well formatted response header
  * (error response is fine) within one second.
  */
+
 static int tpm_util_test(int fd,
                          unsigned char *request,
                          size_t requestlen,
                          uint16_t *return_tag)
 {
     struct tpm_resp_hdr *resp;
-    fd_set readfds;
+    /* 修改：使用 poll 替代 select 以支持 >1024 文件句柄 */
+    struct pollfd pfd = { .fd = fd, .events = POLLIN, .revents = 0 };
     int n;
-    struct timeval tv = {
-        .tv_sec = 1,
-        .tv_usec = 0,
-    };
     unsigned char buf[1024];
 
     n = write(fd, request, requestlen);
@@ -49,13 +48,11 @@ static int tpm_util_test(int fd,
         return EFAULT;
     }
 
-    FD_ZERO(&readfds);
-    FD_SET(fd, &readfds);
-
     /* wait for a second */
-    n = select(fd + 1, &readfds, NULL, NULL, &tv);
-    if (n != 1) {
-        return errno;
+    n = poll(&pfd, 1, 1000); // 1000ms timeout
+    
+    if (n <= 0) {
+        return errno ? errno : ETIMEDOUT;
     }
 
     n = read(fd, &buf, sizeof(buf));
