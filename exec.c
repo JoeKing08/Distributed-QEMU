@@ -1656,10 +1656,11 @@ static void ram_block_add(RAMBlock *new_block, Error **errp)
                                         DIRTY_CLIENTS_ALL);
 
     if (new_block->host) {
+       /*
         qemu_ram_setup_dump(new_block->host, new_block->max_length);
-        qemu_madvise(new_block->host, new_block->max_length, QEMU_MADV_HUGEPAGE);
-        /* MADV_DONTFORK is also needed by KVM in absence of synchronous MMU */
+        qemu_madvise(new_block->host, new_block->max_length, QEMU_MADV_HUGEPAGE)
         qemu_madvise(new_block->host, new_block->max_length, QEMU_MADV_DONTFORK);
+       */
         /* [GiantVM Universal] 尝试注册内存 */
         dsm_universal_register(new_block->host, new_block->max_length);
     }
