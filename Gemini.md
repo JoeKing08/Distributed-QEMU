@@ -242,6 +242,7 @@ GiantVM-Frontier-V16/
 │   └── platform_defs.h             # [垫片] 类型隔离
 ├── master_core/
 │   ├── unified_driver.h            # [接口] Ops 定义
+│   ├── logic_core.h               # [接口] 用于链接
 │   ├── logic_core.c                # [逻辑] 核心算法
 │   ├── kernel_backend.c            # [后端A] mmap/ioctl/vzalloc
 │   ├── user_backend.c              # [后端B] calloc/socket
@@ -249,9 +250,9 @@ GiantVM-Frontier-V16/
 │   ├── Makefile_User               # User 构建脚本
 │   └── main_wrapper.c              # User 入口
 ├── ctl_tool/                       # [工具] 控制面注入器
-│   ├── Makefile                    # [新增] 构建脚本
+│   ├── Makefile                    # 构建脚本
 │   ├── main.c                      # 文本解析 -> IOCTL
-│   └── gateway_list.txt            # [修正] 纯文本配置
+│   └── gateway_list.txt            # 纯文本配置
 ├── qemu_patch/                     # [QEMU 5.2.0]
 │   ├── accel/giantvm/giantvm-all.c # AccelClass 注册
 │   ├── accel/giantvm/giantvm-cpu.c # CPU 拦截
@@ -380,8 +381,8 @@ GiantVM-Frontier-V16/
     ops->free_packet(cp);
     ```
 
-## Step 4: 内核后端实现 (Kernel Backend) - 最关键部分
-**文件**: `master_core/kernel_backend.c`
+## Step 4: 内核后端实现与内核构建脚本 (Kernel Backend & Kernel Build Script) - 最关键部分
+**文件**: `master_core/kernel_backend.c`,`master_core/Kbuild`
 
 1.  **Global**: `static struct sockaddr_in gateway_table[GVM_MAX_GATEWAYS];`
 2.  **VM Ops Definition** (Explicit):
@@ -413,7 +414,13 @@ GiantVM-Frontier-V16/
     *   `cpu_relax`: 调用内核宏 `cpu_relax()`.
     *   `check_req_status`: 必须先调用 `smp_rmb()` (读内存屏障) 再读取状态位，防止读取到 CPU 缓存中的陈旧数据。
 
-## Step 5: 控制面工具 (Control Tool)
+## Step 5: 用户态后端实现 (User Backend) - 复用逻辑核心代码
+**文件**: `master_core/user_backend.c`, `master_core/main_wrapper.c`, `master_core/Makefile_User`
+
+## Step 6: Slave 守护进程 (Slave daemon)
+**文件**: `slave_daemon/net_uring.c`, `slave_daemon/cpu_executor.c`, `master_core/Makefile_User`
+
+## Step 7: 控制面工具 (Control Tool)
 **文件**: `ctl_tool/main.c`, `ctl_tool/Makefile`
 1.  **Makefile**: `gcc -o gvm_ctl main.c`.
 2.  **Logic**:
@@ -421,7 +428,7 @@ GiantVM-Frontier-V16/
     *   使用 `fscanf` 解析每行 `id ip port`.
     *   打开 `/dev/giantvm`，循环调用 `ioctl(fd, IOCTL_SET_GATEWAY, ...)`.
 
-## Step 6: QEMU 5.2.0 适配 (Frontend)
+## Step 8: QEMU 5.2.0 适配 (Frontend)
 **文件**: `qemu_patch/accel/giantvm/*`
 
 1.  **Init**: 在 `init_machine` 中 `open("/dev/giantvm", O_RDWR)` 并 `mmap`.
@@ -429,11 +436,14 @@ GiantVM-Frontier-V16/
     *   在 `giantvm-cpu.c` 实现 `giantvm_cpu_exec`.
     *   `ops.schedule_policy(cpu_index)` -> Local(KVM) or Remote(RPC).
 
-## Step 7: 优化的网关 (Gateway)
+## Step 9: 优化的网关 (Gateway)
 **文件**: `gateway_service/aggregator.c`
 1.  **Structure**: `struct slave_buffer **buffers;` (二级指针).
 2.  **Init**: `buffers = calloc(GVM_MAX_SLAVES, sizeof(void*));`
 3.  **On-Demand**: `if (!buffers[id]) buffers[id] = malloc(MTU);`
+
+## Step 10: Guest 工具 (Guest Tools)
+**文件**: `guest_tools/win_memory_hint.cpp`
 
 ---
 
